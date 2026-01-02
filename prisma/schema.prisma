@@ -1,0 +1,72 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+  moduleFormat  = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+model User {
+  id                    String          @id @default(uuid())
+  email                 String          @unique
+  firstName             String
+  lastName              String
+  password              String
+  posts                 Post[]
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  refreshToken          RefreshToken[]
+  passwordChangedAt     DateTime?
+  passwordResetToken    String?
+  passwordResetExpires  DateTime?
+  role                  Role            @default(USER)
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid())
+  tokenHash  String    // Hashed refresh token
+  lookupHash String    @unique  // For quick lookup (SHA256 of plain token)
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent  String?
+  ipAddress  String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@map("refresh_tokens")
+  @@index([userId, expiresAt, revokedAt])
+}
+
+model BlacklistedToken {
+  id        String   @id @default(uuid())
+  token     String   @unique  // Plain access token (short-lived, safe to store)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("blacklisted_tokens")
+  @@index([expiresAt])
+}
+
+model Post {
+  id        String     @id @default(uuid())
+  title     String
+  content   String?
+  published Boolean @default(false)
+  author    User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  String
+}

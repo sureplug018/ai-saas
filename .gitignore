@@ -2,3 +2,7 @@
 /dist
 /.vscode
 .env
+/logs
+/prisma/migrations/
+
+/generated
