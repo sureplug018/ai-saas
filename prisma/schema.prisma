@@ -34,6 +34,7 @@ model User {
   passwordResetToken    String?
   passwordResetExpires  DateTime?
   role                  Role            @default(USER)
+  confirmed             Boolean         @default(false)
 }
 
 model RefreshToken {

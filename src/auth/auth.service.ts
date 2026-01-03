@@ -5,13 +5,14 @@ import { SigninDto } from './dto/signin.dto';
 import { SignupDto } from './dto/signup.dto';
 import { prisma } from '../lib/prisma';
 import * as bcrypt from 'bcrypt';
-import * as crypto from 'crypto';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import {
   checkLoginBlock,
   recordFailedLogin,
   resetLoginAttempts,
 } from 'src/utils/loginAttempts';
+import { generateRefreshToken } from 'src/utils/refreshToken';
+import { signAccessToken } from 'src/utils/accessToken';
 
 @Injectable()
 export class AuthService {
@@ -49,7 +50,7 @@ export class AuthService {
     return { message: 'User created successfully', userId: user.id };
   }
 
-  async signin(signinDto: SigninDto, req: Request) {
+  async signin(signinDto: SigninDto, req: Request, res: Response) {
     const { email, password } = signinDto;
 
     // Find user by email
@@ -97,34 +98,10 @@ export class AuthService {
     await resetLoginAttempts(user.id);
 
     // Generate JWT token
-    const payload = { email: user.email, userId: user.id, role: user.role };
-    const token = this.jwtService.sign(payload);
+    const token = signAccessToken(user, this.jwtService, res);
 
-    // generate refresh token
-    const refreshTokenPlain = crypto.randomBytes(64).toString('hex');
-    const refreshTokenHash = await bcrypt.hash(refreshTokenPlain, 12);
-    const lookupHash = crypto
-      .createHash('sha256')
-      .update(refreshTokenPlain)
-      .digest('hex');
-
-    const ipAddress = req.ip;
-    const userAgent = req.headers['user-agent'];
-
-    if (!ipAddress || !userAgent) {
-      throw new BadRequestException('Cannot determine client information');
-    }
-
-    await prisma.refreshToken.create({
-      data: {
-        tokenHash: refreshTokenHash,
-        lookupHash,
-        userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 30 days
-        ipAddress,
-        userAgent,
-      },
-    });
+    //   Generate refresh token
+    const refreshTokenPlain = await generateRefreshToken(user, req, res);
 
     return { message: 'Signin successful', token, refreshTokenPlain };
   }
