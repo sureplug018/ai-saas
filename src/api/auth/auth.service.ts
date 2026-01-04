@@ -1,9 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import { SigninDto } from './dto/signin.dto';
 import { SignupDto } from './dto/signup.dto';
-import { prisma } from '../lib/prisma';
+import { prisma } from '../../lib/prisma';
 import * as bcrypt from 'bcrypt';
 import { Request, Response } from 'express';
 import {
@@ -11,15 +9,11 @@ import {
   recordFailedLogin,
   resetLoginAttempts,
 } from 'src/utils/loginAttempts';
-import { generateRefreshToken } from 'src/utils/refreshToken';
-import { signAccessToken } from 'src/utils/accessToken';
+import { TokenService } from 'src/common/module/token/token.service';
 
 @Injectable()
 export class AuthService {
-  constructor(
-    private jwtService: JwtService,
-    private configService: ConfigService,
-  ) {}
+  constructor(private readonly tokenService: TokenService) {}
 
   async signup(signupDto: SignupDto) {
     const { firstName, lastName, email, password } = signupDto;
@@ -46,6 +40,8 @@ export class AuthService {
         lastName,
       },
     });
+
+    // send confirmation email
 
     return { message: 'User created successfully', userId: user.id };
   }
@@ -98,10 +94,14 @@ export class AuthService {
     await resetLoginAttempts(user.id);
 
     // Generate JWT token
-    const token = signAccessToken(user, this.jwtService, res);
+    const token = this.tokenService.signAccessToken(user, res);
 
     //   Generate refresh token
-    const refreshTokenPlain = await generateRefreshToken(user, req, res);
+    const refreshTokenPlain = await this.tokenService.generateRefreshToken(
+      user,
+      req,
+      res,
+    );
 
     return { message: 'Signin successful', token, refreshTokenPlain };
   }
