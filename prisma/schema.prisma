@@ -53,16 +53,6 @@ model RefreshToken {
   @@index([userId, expiresAt, revokedAt])
 }
 
-model BlacklistedToken {
-  id        String   @id @default(uuid())
-  token     String   @unique  // Plain access token (short-lived, safe to store)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  @@map("blacklisted_tokens")
-  @@index([expiresAt])
-}
-
 model Post {
   id        String     @id @default(uuid())
   title     String

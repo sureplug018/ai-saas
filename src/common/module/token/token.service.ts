@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Response, Request } from 'express';
 import crypto from 'crypto';
@@ -10,6 +14,8 @@ interface User {
   id: string;
   email: string;
   role: string;
+  firstName: string;
+  lastName: string;
 }
 
 interface UserPayload {
@@ -24,6 +30,8 @@ export interface AccessTokenPayload {
   userId: string; // user id
   email: string;
   role: string;
+  firstName: string;
+  lastName: string;
 }
 
 @Injectable()
@@ -34,7 +42,13 @@ export class TokenService {
   ) {}
 
   signAccessToken(user: User, res: Response): string {
-    const payload = { email: user.email, userId: user.id, role: user.role };
+    const payload = {
+      email: user.email,
+      userId: user.id,
+      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+    };
     const token = this.jwtService.sign(payload);
 
     // set cookie
@@ -85,20 +99,44 @@ export class TokenService {
     });
   }
 
-  async verifyRefreshToken(refreshToken: string, id: string) {
+  async verifyRefreshToken(refreshToken: string) {
     const lookupHash = crypto
       .createHash('sha256')
       .update(refreshToken)
       .digest('hex');
 
-    // delete all refresh tokens from the user agent
-    await prisma.refreshToken.delete({
-      where: {
-        userId: id,
-        lookupHash,
-      },
+    const tokenRecord = await prisma.refreshToken.findUnique({
+      where: { lookupHash },
+      include: { user: true },
     });
 
-    return lookupHash;
+    // 1️⃣ Token not found → reuse attack
+    if (!tokenRecord) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    // 2️⃣ Revoked or expired
+    if (tokenRecord.revokedAt || tokenRecord.expiresAt < new Date()) {
+      throw new UnauthorizedException('Refresh token expired or revoked');
+    }
+
+    // 3️⃣ Compare token securely
+    const isValid = await bcrypt.compare(refreshToken, tokenRecord.tokenHash);
+
+    // 4️⃣ Hash mismatch → reuse attack
+    if (!isValid) {
+      await prisma.refreshToken.updateMany({
+        where: { userId: tokenRecord.userId },
+        data: { revokedAt: new Date() },
+      });
+      throw new UnauthorizedException('Refresh token reuse detected');
+    }
+
+    // 5️⃣ Rotate token → delete used one
+    await prisma.refreshToken.delete({
+      where: { id: tokenRecord.id },
+    });
+
+    return tokenRecord;
   }
 }

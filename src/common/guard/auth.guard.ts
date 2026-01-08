@@ -37,7 +37,7 @@ export class AuthGuard implements CanActivate {
     const accessToken = request.cookies?.['accessToken'] as string;
     const refreshToken = request.cookies?.['refreshToken'] as string;
 
-    if (!refreshToken)
+    if (!accessToken && !refreshToken)
       throw new UnauthorizedException(ERROR_CONSTANT.UNAUTHORIZED_ERROR);
 
     try {
@@ -52,40 +52,61 @@ export class AuthGuard implements CanActivate {
           where: { lookupHash },
           include: { user: true },
         });
-        if (refreshTokenRecord) {
-          const { id, role, firstName, lastName, email } =
-            refreshTokenRecord.user;
-          await this.tokenService.verifyRefreshToken(refreshToken, id);
-          // if fresh token is valid, generate access token
-          this.tokenService.signAccessToken(refreshTokenRecord.user, response);
-          // set current user in the request object
-          request.currentUser = { id, role, firstName, lastName, email };
+        if (
+          !refreshTokenRecord ||
+          refreshTokenRecord.revokedAt ||
+          refreshTokenRecord.expiresAt < new Date()
+        ) {
+          throw new UnauthorizedException(ERROR_CONSTANT.UNAUTHORIZED_ERROR);
         }
+        const { id, role, firstName, lastName, email } =
+          refreshTokenRecord.user;
+        await this.tokenService.verifyRefreshToken(refreshToken);
+        // if fresh token is valid, generate access token
+        this.tokenService.signAccessToken(refreshTokenRecord.user, response);
+        // set current user in the request object
+        request.currentUser = { id, role, firstName, lastName, email };
+
         return true;
       } else {
         // if there is access token, verify the access token
 
-        this.tokenService.verifyAccessToken(
+        const payload = this.tokenService.verifyAccessToken(
           accessToken,
           ENVIRONMENT.JWT_SECRET,
         );
         // if valid set current user in the request object
+        request.currentUser = {
+          id: payload.userId,
+          email: payload.email,
+          role: payload.role,
+          firstName: payload.firstName,
+          lastName: payload.lastName,
+        };
         return true;
       }
     } catch (err) {
-      if (err instanceof JsonWebTokenError)
-        throw new UnauthorizedException(ERROR_CONSTANT.UNAUTHORIZED_ERROR);
-
-      // if access is expired and there is refresh token
-
+      // check for expired access token
       if (err instanceof TokenExpiredError && refreshToken) {
         // check the validity of the refresh token
+        const tokenRecord =
+          await this.tokenService.verifyRefreshToken(refreshToken);
         // if still valid, assign a new access token
-      } else {
-        throw new UnauthorizedException(ERROR_CONSTANT.UNAUTHORIZED_ERROR);
+        this.tokenService.signAccessToken(tokenRecord.user, response);
+        // grant access
+
+        const user = tokenRecord.user;
+        request.currentUser = {
+          id: user.id,
+          role: user.role,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+        };
+        return true;
       }
 
-      if (err instanceof NotBeforeError)
+      if (err instanceof JsonWebTokenError || err instanceof NotBeforeError)
         throw new UnauthorizedException(ERROR_CONSTANT.UNAUTHORIZED_ERROR);
 
       throw new UnauthorizedException(ERROR_CONSTANT.UNAUTHORIZED_ERROR);
