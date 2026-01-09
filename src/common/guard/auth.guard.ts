@@ -16,22 +16,12 @@ import { prisma } from 'src/lib/prisma';
 import crypto from 'crypto';
 import { TokenService } from '../module/token/token.service';
 
-interface customRequest extends Request {
-  currentUser?: {
-    id: string;
-    role: string; // or your Role type
-    firstName: string;
-    lastName: string;
-    email: string;
-  };
-}
-
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(private readonly tokenService: TokenService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request: customRequest = context.switchToHttp().getRequest();
+    const request: Request = context.switchToHttp().getRequest();
     const response: Response = context.switchToHttp().getResponse();
 
     const accessToken = request.cookies?.['accessToken'] as string;
@@ -78,8 +68,8 @@ export class AuthGuard implements CanActivate {
         // if valid set current user in the request object
         request.currentUser = {
           id: payload.userId,
-          email: payload.email,
           role: payload.role,
+          email: payload.email,
           firstName: payload.firstName,
           lastName: payload.lastName,
         };

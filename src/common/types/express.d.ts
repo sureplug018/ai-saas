@@ -1,14 +1,13 @@
-// src/types/express.d.ts
-import { Request } from 'express';
+import { Role } from '../../lib/prisma';
 
 declare module 'express-serve-static-core' {
   interface Request {
     currentUser?: {
       id: string;
-      role: string;
+      role: Role;
+      email: string;
       firstName: string;
       lastName: string;
-      email: string;
     };
   }
 }

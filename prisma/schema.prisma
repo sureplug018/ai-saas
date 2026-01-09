@@ -5,9 +5,9 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
-  moduleFormat  = "cjs"
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
 }
 
 datasource db {
@@ -21,26 +21,26 @@ enum Role {
 }
 
 model User {
-  id                    String          @id @default(uuid())
-  email                 String          @unique
-  firstName             String
-  lastName              String
-  password              String
-  posts                 Post[]
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
-  refreshToken          RefreshToken[]
-  passwordChangedAt     DateTime?
-  passwordResetToken    String?
-  passwordResetExpires  DateTime?
-  role                  Role            @default(USER)
-  confirmed             Boolean         @default(false)
+  id                   String         @id @default(uuid())
+  email                String         @unique
+  firstName            String
+  lastName             String
+  password             String
+  posts                Post[]
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  refreshToken         RefreshToken[]
+  passwordChangedAt    DateTime?
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+  role                 Role           @default(USER)
+  confirmed            Boolean        @default(false)
 }
 
 model RefreshToken {
   id         String    @id @default(uuid())
-  tokenHash  String    // Hashed refresh token
-  lookupHash String    @unique  // For quick lookup (SHA256 of plain token)
+  tokenHash  String // Hashed refresh token
+  lookupHash String    @unique // For quick lookup (SHA256 of plain token)
   userId     String
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userAgent  String?
@@ -49,12 +49,12 @@ model RefreshToken {
   revokedAt  DateTime?
   createdAt  DateTime  @default(now())
 
-  @@map("refresh_tokens")
   @@index([userId, expiresAt, revokedAt])
+  @@map("refresh_tokens")
 }
 
 model Post {
-  id        String     @id @default(uuid())
+  id        String  @id @default(uuid())
   title     String
   content   String?
   published Boolean @default(false)

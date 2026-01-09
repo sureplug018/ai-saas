@@ -9,11 +9,12 @@ import crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { prisma } from 'src/lib/prisma';
 import { CookieService } from 'src/common/module/cookie/cookie.service';
+import { Role } from '../../../lib/prisma';
 
 interface User {
   id: string;
   email: string;
-  role: string;
+  role: Role;
   firstName: string;
   lastName: string;
 }
@@ -23,13 +24,13 @@ interface UserPayload {
   email: string;
   firstName: string;
   lastName: string;
-  role: string;
+  role: Role;
 }
 
 export interface AccessTokenPayload {
   userId: string; // user id
   email: string;
-  role: string;
+  role: Role;
   firstName: string;
   lastName: string;
 }
