@@ -1,9 +1,11 @@
+import { Role } from '../lib/prisma';
+
 declare global {
   namespace Express {
     interface Request {
       currentUser?: {
         id: string;
-        role: 'USER' | 'ADMIN' | 'MODERATOR';
+        role: Role;
         email: string;
         firstName: string;
         lastName: string;
